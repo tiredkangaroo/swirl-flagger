@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Swirl Submission Sanity Check</title>
+    <style>
+      :root {
+        --bg-color: #faf6ee;
+        --card-bg: #ffffff;
+        --text-color: #4a3e3d;
+        --border-color: #e6dfd5;
+        --accent-color: #d97706;
+        --accent-hover: #b45309;
+        --flag-bg: #fee2e2;
+        --flag-text: #991b1b;
+        --success-bg: #d1fae5;
+        --success-text: #065f46;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 40px 20px;
+        line-height: 1.5;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        font-size: 2.25rem;
+        color: #2e2524;
+        margin-bottom: 8px;
+        font-weight: 700;
+      }
+
+      .subtitle {
+        color: #7c6e6d;
+        margin-top: 0;
+        margin-bottom: 32px;
+      }
+
+      #var-container {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 24px;
+        display: none;
+        flex-direction: column;
+        gap: 16px;
+        max-width: 500px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      }
+
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .input-group label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #615251;
+      }
+
+      input {
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 1rem;
+        color: var(--text-color);
+        background-color: #fdfcfb;
+      }
+
+      input:focus {
+        outline: 2px solid var(--accent-color);
+        outline-offset: -1px;
+      }
+
+      button {
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 500;
+        border-radius: 6px;
+        transition: all 0.2s;
+      }
+
+      #fetchRecordsButton {
+        width: fit-content;
+        padding: 10px 20px;
+        background-color: var(--accent-color);
+        color: white;
+        border: none;
+      }
+
+      #fetchRecordsButton:hover {
+        background-color: var(--accent-hover);
+      }
+
+      #modify-credentials {
+        display: none;
+        padding: 6px 12px;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: #7c6e6d;
+        font-size: 0.875rem;
+        margin-bottom: 24px;
+      }
+
+      #modify-credentials:hover {
+        background: #f3ece0;
+        color: var(--text-color);
+      }
+
+      /* Controls & Filter Section */
+      .controls-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      .filters {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .filter-btn {
+        padding: 8px 16px;
+        background: #f3ece0;
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+      }
+
+      .filter-btn:hover {
+        background: #ebdcc5;
+      }
+
+      .filter-btn.active {
+        background: var(--text-color);
+        color: #ffffff;
+        border-color: var(--text-color);
+      }
+
+      .status-text {
+        font-weight: 500;
+        color: #7c6e6d;
+      }
+
+      /* Results Table Layout */
+      .table-wrapper {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.95rem;
+      }
+
+      th {
+        background-color: #f6efe4;
+        color: #2e2524;
+        font-weight: 600;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: top;
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      tr:hover td {
+        background-color: #fdfbfa;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        /* text-transform: uppercase; */
+        letter-spacing: 0.05em;
+      }
+
+      .badge-workshop {
+        background-color: #e0f2fe;
+        color: #0369a1;
+      }
+
+      .badge-individual {
+        background-color: #f3e8ff;
+        color: #6b21a8;
+      }
+
+      .reason-tag {
+        display: block;
+        background-color: var(--flag-bg);
+        color: var(--flag-text);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+        width: fit-content;
+      }
+
+      .reason-tag:last-child {
+        margin-bottom: 0;
+      }
+
+      .no-flags {
+        color: var(--success-text);
+        background-color: var(--success-bg);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        width: fit-content;
+      }
+
+      .text-muted {
+        color: #9c8e8d;
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>swirl sanity check</h1>
+
+      <button id="modify-credentials" onclick="modifyCredentials()">Modify Credentials</button>
+
+      <div id="var-container">
+        <div class="input-group">
+          <label for="baseID">Airtable Base ID</label>
+          <input id="baseID" placeholder="appXXXXXXXXXXXXXX" />
+        </div>
+        <div class="input-group">
+          <label for="tableID">Table ID / Name</label>
+          <input id="tableID" placeholder="tblXXXXXXXXXXXXXX" />
+        </div>
+        <div class="input-group">
+          <label for="airtablePAT">Airtable Personal Access Token (PAT)</label>
+          <input id="airtablePAT" type="password" placeholder="pat.XXXXXXXXXXXXXXXXXXXXXXXX" />
+        </div>
+        <button id="fetchRecordsButton" onclick="fetchRecords()">Set Credentials & Run Check</button>
+      </div>
+
+      <div id="results-section" style="display: none">
+        <div class="controls-bar">
+          <div class="filters">
+            <button class="filter-btn active" onclick="setFilter('flagged', this)">All Flagged</button>
+            <button class="filter-btn" onclick="setFilter('workshop', this)">Flagged Workshop Only</button>
+            <button class="filter-btn" onclick="setFilter('individual', this)">Flagged Individual Only</button>
+          </div>
+          <div id="status-display" class="status-text">Processing...</div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Applicant</th>
+                <th>Type</th>
+                <th>Details</th>
+                <th>Sanity Check Results</th>
+              </tr>
+            </thead>
+            <tbody id="records-table-body">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const thirteenYearsInMs = 13 * 365 * 24 * 60 * 60 * 1000;
+      const nineteenYearsInMs = 19 * 365 * 24 * 60 * 60 * 1000;
+
+      let globalPendingRecords = [];
+      let globalFlaggedMap = {};
+      let currentFilter = "all";
+
+      async function fetchRecords() {
+        var records = [];
+        const baseID = document.getElementById("baseID").value;
+        const tableID = document.getElementById("tableID").value;
+        const airtablePAT = document.getElementById("airtablePAT").value;
+
+        if (!baseID || !tableID || !airtablePAT) {
+          alert("Please fill in all identity credentials.");
+          return;
+        }
+
+        localStorage.setItem("baseID", baseID);
+        localStorage.setItem("tableID", tableID);
+        localStorage.setItem("airtablePAT", airtablePAT);
+
+        document.getElementById("modify-credentials").style.display = "inline-block";
+        document.getElementById("var-container").style.display = "none";
+        document.getElementById("results-section").style.display = "block";
+        document.getElementById("status-display").textContent = "Fetching records from Airtable...";
+
+        let offset = "";
+        try {
+          while (true) {
+            const resp = await fetch(`https://api.airtable.com/v0/${baseID}/${tableID}?offset=${offset}`, {
+              method: "GET",
+              headers: { Authorization: `Bearer ${airtablePAT}` },
+            });
+            if (!resp.ok) throw new Error("Airtable API breakdown. Check your credentials.");
+            const data = await resp.json();
+            records = records.concat(data.records);
+            if (!data.offset) break;
+            offset = data.offset;
+          }
+
+          document.getElementById("status-display").textContent = "running sanity checker";
+          await processAndRender(records);
+        } catch (err) {
+          document.getElementById("status-display").textContent = "error: " + err.message;
+        }
+        console.log("fetched records:", records);
+      }
+
+      function modifyCredentials() {
+        document.getElementById("var-container").style.display = "flex";
+        document.getElementById("modify-credentials").style.display = "none";
+      }
+
+      async function onLoad() {
+        const baseID = localStorage.getItem("baseID");
+        const tableID = localStorage.getItem("tableID");
+        const airtablePAT = localStorage.getItem("airtablePAT");
+        if (baseID && tableID && airtablePAT) {
+          document.getElementById("modify-credentials").style.display = "inline-block";
+          document.getElementById("baseID").value = baseID;
+          document.getElementById("tableID").value = tableID;
+          document.getElementById("airtablePAT").value = airtablePAT;
+          await fetchRecords();
+        } else {
+          document.getElementById("var-container").style.display = "flex";
+        }
+      }
+
+      async function processAndRender(records) {
+        globalPendingRecords = records.filter((record) => record.fields["Review Status"] === "Pending");
+        const approvedRecords = records.filter((record) => record.fields["Review Status"] === "Approved");
+
+        globalFlaggedMap = await flagRecords(globalPendingRecords, approvedRecords);
+        renderTable();
+        setFilter("flagged", document.querySelector(".filter-btn.active"));
+      }
+
+      async function flagRecords(pendingRecords, approvedRecords) {
+        const flaggedRecords = {};
+
+        if (pendingRecords.length === 0) {
+          return flaggedRecords;
+        }
+
+        for (const record of pendingRecords) {
+          // Check age at time of submission
+          const age = new Date(record.createdTime) - new Date(record.fields["Birthday"]);
+          if (age < thirteenYearsInMs || age >= nineteenYearsInMs) {
+            addFlagReason(flaggedRecords, record.id, "age not [13, 19)");
+          }
+
+          // Individual submission checks
+          if (!record.fields["Event Code"]) {
+            if (!record.fields["Slack ID"]) {
+              addFlagReason(flaggedRecords, record.id, "missing slack id");
+            }
+            try {
+              // Awaiting the endpoint properly now so details don't drop out async
+              const idResp = await fetch(
+                `https://identity.hackclub.com/api/external/check?email=${encodeURIComponent(record.fields["Email"] || "")}`,
+              );
+              const idData = await idResp.json();
+              if (idData.result !== "verified_eligible") {
+                addFlagReason(flaggedRecords, record.id, "idv: " + idData.result);
+              }
+            } catch {
+              addFlagReason(flaggedRecords, record.id, "error checking identity database");
+            }
+          }
+
+          // Duplicate checking routines against approved database
+          for (const approvedRecord of approvedRecords) {
+            if (record.fields["Email"] && record.fields["Email"] === approvedRecord.fields["Email"]) {
+              addFlagReason(flaggedRecords, record.id, "duplicate email");
+            }
+            try {
+              if (record.fields["Code URL"] && approvedRecord.fields["Code URL"]) {
+                if (
+                  new URL(record.fields["Code URL"]).pathname === new URL(approvedRecord.fields["Code URL"]).pathname
+                ) {
+                  addFlagReason(flaggedRecords, record.id, "duplicate code url");
+                }
+              }
+            } catch {}
+            if (
+              record.fields["Playable URL"] &&
+              record.fields["Playable URL"] === approvedRecord.fields["Playable URL"]
+            ) {
+              addFlagReason(flaggedRecords, record.id, "duplicate playable url");
+            }
+            if (record.fields["Slack ID"] && record.fields["Slack ID"] === approvedRecord.fields["Slack ID"]) {
+              addFlagReason(flaggedRecords, record.id, "duplicate slack id");
+            }
+            if (
+              record.fields["First Name"] &&
+              record.fields["Last Name"] &&
+              record.fields["First Name"] === approvedRecord.fields["First Name"] &&
+              record.fields["Last Name"] === approvedRecord.fields["Last Name"]
+            ) {
+              addFlagReason(flaggedRecords, record.id, "duplicate full name");
+            }
+          }
+        }
+        return flaggedRecords;
+      }
+
+      function addFlagReason(flaggedRecords, recordID, reason) {
+        if (flaggedRecords[recordID]) {
+          if (!flaggedRecords[recordID].includes(reason)) {
+            flaggedRecords[recordID].push(reason);
+          }
+        } else {
+          flaggedRecords[recordID] = [reason];
+        }
+      }
+
+      function setFilter(filterType, element) {
+        currentFilter = filterType;
+        document.querySelectorAll(".filter-btn").forEach((btn) => btn.classList.remove("active"));
+        element.classList.add("active");
+        renderTable();
+      }
+
+      function renderTable() {
+        const tbody = document.getElementById("records-table-body");
+        tbody.innerHTML = "";
+
+        const filtered = globalPendingRecords.filter((record) => {
+          const flags = globalFlaggedMap[record.id] || [];
+          const isFlagged = flags.length > 0;
+          const isWorkshop = !!record.fields["Event Code"];
+
+          if (currentFilter === "all") return true;
+          if (currentFilter === "flagged") return isFlagged;
+          if (currentFilter === "workshop") return isFlagged && isWorkshop;
+          if (currentFilter === "individual") return isFlagged && !isWorkshop;
+          return true;
+        });
+
+        document.getElementById("status-display").textContent =
+          `Showing ${filtered.length} of ${globalPendingRecords.length} pending record(s)`;
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #7c6e6d;">No records match the current view filter.</td></tr>`;
+          return;
+        }
+
+        filtered.forEach((record) => {
+          const fields = record.fields;
+          const flags = globalFlaggedMap[record.id] || [];
+          const isWorkshop = !!fields["Event Code"];
+
+          const row = document.createElement("tr");
+
+          // Name & Base Account Column
+          const nameCell = document.createElement("td");
+          nameCell.innerHTML = `
+            <strong>${fields["First Name"] || ""} ${fields["Last Name"] || "Unnamed"}</strong>
+            <div class="text-muted">${fields["Email"] || "No email provided"}</div>
+          `;
+          row.appendChild(nameCell);
+
+          // Type Tag Column
+          const typeCell = document.createElement("td");
+          typeCell.innerHTML = isWorkshop
+            ? `<span class="badge badge-workshop">Workshop (${fields["Event Code (from Event Code)"][0]})</span>`
+            : `<span class="badge badge-individual">Individual</span>`;
+          row.appendChild(typeCell);
+
+          // Links / Submission Details Column
+          const detailsCell = document.createElement("td");
+          detailsCell.innerHTML = `
+            <div style="font-size: 0.875rem;">
+              ${fields["Code URL"] ? `<div>🔗 <a href="${fields["Code URL"]}" target="_blank" style="color: var(--accent-color);">Code Repo</a></div>` : ""}
+              ${fields["Playable URL"] ? `<div>🎮 <a href="${fields["Playable URL"]}" target="_blank" style="color: var(--accent-color);">Playable Build</a></div>` : ""}
+              <div class="text-muted" style="margin-top: 4px;">Slack: <code>${fields["Slack ID"] || "N/A"}</code></div>
+            </div>
+          `;
+          row.appendChild(detailsCell);
+
+          // Audit Verdict Flags Column
+          const flagsCell = document.createElement("td");
+          if (flags.length > 0) {
+            flags.forEach((reason) => {
+              const tag = document.createElement("span");
+              tag.className = "reason-tag";
+              tag.textContent = reason;
+              flagsCell.appendChild(tag);
+            });
+          } else {
+            flagsCell.innerHTML = `<span class="no-flags">✓ not flagged</span>`;
+          }
+          row.appendChild(flagsCell);
+
+          tbody.appendChild(row);
+        });
+      }
+
+      onLoad();
+    </script>
+  </body>
+</html>
