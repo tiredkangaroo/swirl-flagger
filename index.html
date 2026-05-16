@@ -69,7 +69,8 @@
         color: #615251;
       }
 
-      input {
+      input,
+      select {
         padding: 10px 12px;
         border: 1px solid var(--border-color);
         border-radius: 6px;
@@ -78,7 +79,8 @@
         background-color: #fdfcfb;
       }
 
-      input:focus {
+      input:focus,
+      select:focus {
         outline: 2px solid var(--accent-color);
         outline-offset: -1px;
       }
@@ -132,6 +134,7 @@
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        align-items: center;
       }
 
       .filter-btn {
@@ -149,6 +152,41 @@
         background: var(--text-color);
         color: #ffffff;
         border-color: var(--text-color);
+      }
+
+      .review-status-pending {
+        color: #d97706;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .review-status-approved {
+        color: #16a34a;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .review-status-rejected {
+        color: #dc2626;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .review-status-changes-requested {
+        color: #1709b4;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+
+      .event-select-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: 8px;
+        border-left: 2px solid var(--border-color);
+        padding-left: 16px;
+      }
+
+      .event-select-wrapper label {
+        font-size: 0.875rem;
+        font-weight: 600;
       }
 
       .status-text {
@@ -200,7 +238,6 @@
         border-radius: 4px;
         font-size: 0.75rem;
         font-weight: 600;
-        /* text-transform: uppercase; */
         letter-spacing: 0.05em;
       }
 
@@ -223,6 +260,12 @@
         font-size: 0.85rem;
         margin-bottom: 4px;
         width: fit-content;
+      }
+
+      .reason-tag a {
+        color: currentColor;
+        font-weight: 600;
+        text-decoration: underline;
       }
 
       .reason-tag:last-child {
@@ -260,6 +303,10 @@
           <input id="tableID" placeholder="tblXXXXXXXXXXXXXX" />
         </div>
         <div class="input-group">
+          <label for="viewID">View ID (for "All" / Origin Grid View)</label>
+          <input id="viewID" placeholder="viwXXXXXXXXXXXXXX" />
+        </div>
+        <div class="input-group">
           <label for="airtablePAT">Airtable Personal Access Token (PAT)</label>
           <input id="airtablePAT" type="password" placeholder="pat.XXXXXXXXXXXXXXXXXXXXXXXX" />
         </div>
@@ -269,9 +316,16 @@
       <div id="results-section" style="display: none">
         <div class="controls-bar">
           <div class="filters">
-            <button class="filter-btn active" onclick="setFilter('flagged', this)">All Flagged</button>
-            <button class="filter-btn" onclick="setFilter('workshop', this)">Flagged Workshop Only</button>
-            <button class="filter-btn" onclick="setFilter('individual', this)">Flagged Individual Only</button>
+            <button class="filter-btn active" onclick="setFilter('flagged', this)">all flagged pending</button>
+            <button class="filter-btn" onclick="setFilter('workshop', this)">workshop flagged pending</button>
+            <button class="filter-btn" onclick="setFilter('individual', this)">individual flagged pending</button>
+
+            <div class="event-select-wrapper" style="display: flex">
+              <label for="eventCodeFilter">Or Specific Event:</label>
+              <select id="eventCodeFilter" onchange="setEventFilter(this.value)" style="max-width: 300px">
+                <option value="">-- select code (shows all) --</option>
+              </select>
+            </div>
           </div>
           <div id="status-display" class="status-text">Processing...</div>
         </div>
@@ -296,23 +350,27 @@
       const thirteenYearsInMs = 13 * 365 * 24 * 60 * 60 * 1000;
       const nineteenYearsInMs = 19 * 365 * 24 * 60 * 60 * 1000;
 
+      let globalAllRecords = [];
       let globalPendingRecords = [];
       let globalFlaggedMap = {};
-      let currentFilter = "all";
+      let currentFilter = "flagged";
+      let selectedEventCode = "";
 
       async function fetchRecords() {
         var records = [];
         const baseID = document.getElementById("baseID").value;
         const tableID = document.getElementById("tableID").value;
+        const viewID = document.getElementById("viewID").value;
         const airtablePAT = document.getElementById("airtablePAT").value;
 
-        if (!baseID || !tableID || !airtablePAT) {
+        if (!baseID || !tableID || !viewID || !airtablePAT) {
           alert("Please fill in all identity credentials.");
           return;
         }
 
         localStorage.setItem("baseID", baseID);
         localStorage.setItem("tableID", tableID);
+        localStorage.setItem("viewID", viewID);
         localStorage.setItem("airtablePAT", airtablePAT);
 
         document.getElementById("modify-credentials").style.display = "inline-block";
@@ -335,11 +393,11 @@
           }
 
           document.getElementById("status-display").textContent = "running sanity checker";
+          console.log("fetched records:", records);
           await processAndRender(records);
         } catch (err) {
           document.getElementById("status-display").textContent = "error: " + err.message;
         }
-        console.log("fetched records:", records);
       }
 
       function modifyCredentials() {
@@ -350,11 +408,13 @@
       async function onLoad() {
         const baseID = localStorage.getItem("baseID");
         const tableID = localStorage.getItem("tableID");
+        const viewID = localStorage.getItem("viewID");
         const airtablePAT = localStorage.getItem("airtablePAT");
-        if (baseID && tableID && airtablePAT) {
+        if (baseID && tableID && viewID && airtablePAT) {
           document.getElementById("modify-credentials").style.display = "inline-block";
           document.getElementById("baseID").value = baseID;
           document.getElementById("tableID").value = tableID;
+          document.getElementById("viewID").value = viewID;
           document.getElementById("airtablePAT").value = airtablePAT;
           await fetchRecords();
         } else {
@@ -363,12 +423,39 @@
       }
 
       async function processAndRender(records) {
+        globalAllRecords = records;
         globalPendingRecords = records.filter((record) => record.fields["Review Status"] === "Pending");
         const approvedRecords = records.filter((record) => record.fields["Review Status"] === "Approved");
 
         globalFlaggedMap = await flagRecords(globalPendingRecords, approvedRecords);
+
+        populateEventCodeDropdown(globalPendingRecords);
         renderTable();
-        setFilter("flagged", document.querySelector(".filter-btn.active"));
+      }
+
+      function populateEventCodeDropdown(pendingRecords) {
+        const select = document.getElementById("eventCodeFilter");
+        // Reset options keeping only the first fallback item
+        select.innerHTML = '<option value="">-- select code (shows all) --</option>';
+
+        const codes = new Set();
+        globalAllRecords.forEach((r) => {
+          if (r.fields["Event Code (from Event Code)"]) {
+            codes.add(r.fields["Event Code (from Event Code)"][0]);
+          }
+          if (r.fields["club_name (from club) (from Event Code)"]) {
+            codes.add(r.fields["club_name (from club) (from Event Code)"][0]);
+          }
+        });
+
+        Array.from(codes)
+          .sort()
+          .forEach((code) => {
+            const opt = document.createElement("option");
+            opt.value = code;
+            opt.textContent = code;
+            select.appendChild(opt);
+          });
       }
 
       async function flagRecords(pendingRecords, approvedRecords) {
@@ -382,39 +469,46 @@
           // Check age at time of submission
           const age = new Date(record.createdTime) - new Date(record.fields["Birthday"]);
           if (age < thirteenYearsInMs || age >= nineteenYearsInMs) {
-            addFlagReason(flaggedRecords, record.id, "age not [13, 19)");
+            addFlagReason(flaggedRecords, record.id, {
+              text: `age of ${Math.round(age / (1000 * 60 * 60 * 24 * 365))} years`,
+            });
           }
 
           // Individual submission checks
-          if (!record.fields["Event Code"]) {
+          if (!record.fields["Event Code (from Event Code)"]) {
             if (!record.fields["Slack ID"]) {
-              addFlagReason(flaggedRecords, record.id, "missing slack id");
+              addFlagReason(flaggedRecords, record.id, { text: "missing slack id" });
             }
             try {
-              // Awaiting the endpoint properly now so details don't drop out async
               const idResp = await fetch(
                 `https://identity.hackclub.com/api/external/check?email=${encodeURIComponent(record.fields["Email"] || "")}`,
               );
               const idData = await idResp.json();
               if (idData.result !== "verified_eligible") {
-                addFlagReason(flaggedRecords, record.id, "idv: " + idData.result);
+                addFlagReason(flaggedRecords, record.id, { text: "idv: " + idData.result });
               }
             } catch {
-              addFlagReason(flaggedRecords, record.id, "error checking identity database");
+              addFlagReason(flaggedRecords, record.id, { text: "error checking identity database" });
             }
           }
 
           // Duplicate checking routines against approved database
           for (const approvedRecord of approvedRecords) {
             if (record.fields["Email"] && record.fields["Email"] === approvedRecord.fields["Email"]) {
-              addFlagReason(flaggedRecords, record.id, "duplicate email");
+              addFlagReason(flaggedRecords, record.id, {
+                text: "duplicate email of an approved submission",
+                dupId: approvedRecord.id,
+              });
             }
             try {
               if (record.fields["Code URL"] && approvedRecord.fields["Code URL"]) {
                 if (
                   new URL(record.fields["Code URL"]).pathname === new URL(approvedRecord.fields["Code URL"]).pathname
                 ) {
-                  addFlagReason(flaggedRecords, record.id, "duplicate code url");
+                  addFlagReason(flaggedRecords, record.id, {
+                    text: "duplicate code url of an approved submission",
+                    dupId: approvedRecord.id,
+                  });
                 }
               }
             } catch {}
@@ -422,10 +516,16 @@
               record.fields["Playable URL"] &&
               record.fields["Playable URL"] === approvedRecord.fields["Playable URL"]
             ) {
-              addFlagReason(flaggedRecords, record.id, "duplicate playable url");
+              addFlagReason(flaggedRecords, record.id, {
+                text: "duplicate playable url of an approved submission",
+                dupId: approvedRecord.id,
+              });
             }
             if (record.fields["Slack ID"] && record.fields["Slack ID"] === approvedRecord.fields["Slack ID"]) {
-              addFlagReason(flaggedRecords, record.id, "duplicate slack id");
+              addFlagReason(flaggedRecords, record.id, {
+                text: "duplicate slack id of an approved submission",
+                dupId: approvedRecord.id,
+              });
             }
             if (
               record.fields["First Name"] &&
@@ -433,27 +533,49 @@
               record.fields["First Name"] === approvedRecord.fields["First Name"] &&
               record.fields["Last Name"] === approvedRecord.fields["Last Name"]
             ) {
-              addFlagReason(flaggedRecords, record.id, "duplicate full name");
+              addFlagReason(flaggedRecords, record.id, {
+                text: "duplicate full name of an approved submission",
+                dupId: approvedRecord.id,
+              });
             }
           }
         }
         return flaggedRecords;
       }
 
-      function addFlagReason(flaggedRecords, recordID, reason) {
-        if (flaggedRecords[recordID]) {
-          if (!flaggedRecords[recordID].includes(reason)) {
-            flaggedRecords[recordID].push(reason);
-          }
-        } else {
-          flaggedRecords[recordID] = [reason];
+      function addFlagReason(flaggedRecords, recordID, reasonObj) {
+        if (!flaggedRecords[recordID]) {
+          flaggedRecords[recordID] = [];
+        }
+        // Deduplicate standard identical string logs
+        const exists = flaggedRecords[recordID].some((r) => r.text === reasonObj.text && r.dupId === reasonObj.dupId);
+        if (!exists) {
+          flaggedRecords[recordID].push(reasonObj);
         }
       }
 
       function setFilter(filterType, element) {
         currentFilter = filterType;
+        selectedEventCode = ""; // Reset the exclusive code select element
+        document.getElementById("eventCodeFilter").value = "";
+
         document.querySelectorAll(".filter-btn").forEach((btn) => btn.classList.remove("active"));
-        element.classList.add("active");
+        if (element) element.classList.add("active");
+        renderTable();
+      }
+
+      function setEventFilter(eventCode) {
+        selectedEventCode = eventCode;
+        if (eventCode !== "") {
+          // Deactivate the system filter buttons visually since we're viewing code scope
+          document.querySelectorAll(".filter-btn").forEach((btn) => btn.classList.remove("active"));
+          currentFilter = "event_code_scope";
+        } else {
+          // Fallback context if they re-select default option
+          const targetBtn = document.querySelector(".filter-btn") || {};
+          setFilter("flagged", targetBtn);
+          return;
+        }
         renderTable();
       }
 
@@ -461,10 +583,40 @@
         const tbody = document.getElementById("records-table-body");
         tbody.innerHTML = "";
 
-        const filtered = globalPendingRecords.filter((record) => {
+        const baseID = localStorage.getItem("baseID");
+        const tableID = localStorage.getItem("tableID");
+        const viewID = localStorage.getItem("viewID");
+
+        var mainlist = [];
+        if (currentFilter === "event_code_scope") {
+          mainlist = globalAllRecords;
+        } else {
+          mainlist = globalPendingRecords;
+        }
+        const filtered = mainlist.filter((record) => {
           const flags = globalFlaggedMap[record.id] || [];
           const isFlagged = flags.length > 0;
-          const isWorkshop = !!record.fields["Event Code"];
+          const isWorkshop = !!record.fields["Event Code (from Event Code)"];
+
+          // If looking for a specific event code match (show all flagged and clean matching it)
+          if (currentFilter === "event_code_scope") {
+            console.log(
+              "checking record for event code match:",
+              selectedEventCode,
+              record.fields["Event Code (from Event Code)"],
+              record.fields["club_name (from club) (from Event Code)"],
+            );
+            if (record.fields["Event Code (from Event Code)"]) {
+              return record.fields["Event Code (from Event Code)"][0].toLowerCase() === selectedEventCode.toLowerCase();
+            } else if (record.fields["club_name (from club) (from Event Code)"]) {
+              return (
+                record.fields["club_name (from club) (from Event Code)"][0].toLowerCase() ===
+                selectedEventCode.toLowerCase()
+              );
+            } else {
+              return false; // if the record doesn't have an event code, it can't match the filter
+            }
+          }
 
           if (currentFilter === "all") return true;
           if (currentFilter === "flagged") return isFlagged;
@@ -472,26 +624,22 @@
           if (currentFilter === "individual") return isFlagged && !isWorkshop;
           return true;
         });
-
-        document.getElementById("status-display").textContent =
-          `Showing ${filtered.length} of ${globalPendingRecords.length} pending record(s)`;
-
         if (filtered.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 40px; color: #7c6e6d;">No records match the current view filter.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 40px; color: #7c6e6d;">No records match the current view filter.</td></tr>`;
           return;
         }
 
         filtered.forEach((record) => {
           const fields = record.fields;
           const flags = globalFlaggedMap[record.id] || [];
-          const isWorkshop = !!fields["Event Code"];
+          const isWorkshop = !!fields["Event Code (from Event Code)"];
 
           const row = document.createElement("tr");
 
           // Name & Base Account Column
           const nameCell = document.createElement("td");
           nameCell.innerHTML = `
-            <strong>${fields["First Name"] || ""} ${fields["Last Name"] || "Unnamed"}</strong>
+            <strong>${fields["First Name"] || ""} ${fields["Last Name"] || "Unnamed"} <span title="${"decision reason: " + (fields["Decision Reason"] || "no reason provided")}" class="review-status-${fields["Review Status"].toLowerCase().replace(" ", "-")}">(${fields["Review Status"]})</span></strong>
             <div>${
               isWorkshop
                 ? `<span class="badge badge-workshop" title="${fields["Event Code (from Event Code)"]}">Workshop</span>`
@@ -517,7 +665,14 @@
             flags.forEach((reason) => {
               const tag = document.createElement("span");
               tag.className = "reason-tag";
-              tag.textContent = reason;
+
+              if (reason.dupId) {
+                // Generate absolute dynamic Airtable record link
+                const airtableLink = `https://airtable.com/${baseID}/${tableID}/${viewID}/${reason.dupId}?copyLinkToCellOrRecordOrigin=gridView`;
+                tag.innerHTML = `${reason.text} (<a href="${airtableLink}" target="_blank">view original</a>)`;
+              } else {
+                tag.textContent = reason.text;
+              }
               flagsCell.appendChild(tag);
             });
           } else {
