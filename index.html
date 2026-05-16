@@ -639,7 +639,7 @@
           // Name & Base Account Column
           const nameCell = document.createElement("td");
           nameCell.innerHTML = `
-            <strong>${fields["First Name"] || ""} ${fields["Last Name"] || "Unnamed"} <span title="${"decision reason: " + (fields["Decision Reason"] || "no reason provided")}" class="review-status-${fields["Review Status"].toLowerCase().replace(" ", "-")}">(${fields["Review Status"]})</span></strong>
+            <strong>${fields["First Name"] || ""} ${fields["Last Name"] || "Unnamed"} <span title="${"decision reason: " + (fields["Decision Reason"] || "n/a")}\nnotes for the team: ${fields["Notes (for the team)"] || "n/a"}" class="review-status-${fields["Review Status"].toLowerCase().replace(" ", "-")}">(${fields["Review Status"]})</span></strong>
             <div>${
               isWorkshop
                 ? `<span class="badge badge-workshop" title="${fields["Event Code (from Event Code)"]}">Workshop</span>`
