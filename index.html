@@ -280,10 +280,8 @@
           <table>
             <thead>
               <tr>
-                <th>Applicant</th>
-                <th>Type</th>
-                <th>Details</th>
-                <th>Sanity Check Results</th>
+                <th>submission</th>
+                <th>flags</th>
               </tr>
             </thead>
             <tbody id="records-table-body">
@@ -494,27 +492,24 @@
           const nameCell = document.createElement("td");
           nameCell.innerHTML = `
             <strong>${fields["First Name"] || ""} ${fields["Last Name"] || "Unnamed"}</strong>
-            <div class="text-muted">${fields["Email"] || "No email provided"}</div>
+            <div>${
+              isWorkshop
+                ? `<span class="badge badge-workshop" title="${fields["Event Code (from Event Code)"]}">Workshop</span>`
+                : `<span class="badge badge-individual">Individual</span>`
+            }</div>
+            <div class="text-muted"><a href="mailto:${fields["Email"]}" class="text-muted">${fields["Email"] || ""}</a></div>
+            <div><a href="${fields["Slack ID"] ? `https://hackclub.slack.com/team/${fields["Slack ID"]}` : "#"}" target="_blank" style="font-size: 0.85rem; color: var(--accent-color);">
+              ${fields["Slack ID"] ? fields["Slack ID"] : ""}
+            </a></div>
+            <div><a href="${fields["Code URL"] || "#"}" target="_blank" style="font-size: 0.85rem; color: var(--accent-color);">
+              ${fields["Code URL"] ? "Code URL" : "No code url"}
+            </a>
+            </div>
+            <div><a href="${fields["Playable URL"] || "#"}" target="_blank" style="font-size: 0.85rem; color: var(--accent-color);">
+              ${fields["Playable URL"] ? "Playable URL" : "No playable url"}
+            </a></div>
           `;
           row.appendChild(nameCell);
-
-          // Type Tag Column
-          const typeCell = document.createElement("td");
-          typeCell.innerHTML = isWorkshop
-            ? `<span class="badge badge-workshop">Workshop (${fields["Event Code (from Event Code)"][0]})</span>`
-            : `<span class="badge badge-individual">Individual</span>`;
-          row.appendChild(typeCell);
-
-          // Links / Submission Details Column
-          const detailsCell = document.createElement("td");
-          detailsCell.innerHTML = `
-            <div style="font-size: 0.875rem;">
-              ${fields["Code URL"] ? `<div>🔗 <a href="${fields["Code URL"]}" target="_blank" style="color: var(--accent-color);">Code Repo</a></div>` : ""}
-              ${fields["Playable URL"] ? `<div>🎮 <a href="${fields["Playable URL"]}" target="_blank" style="color: var(--accent-color);">Playable Build</a></div>` : ""}
-              <div class="text-muted" style="margin-top: 4px;">Slack: <code>${fields["Slack ID"] || "N/A"}</code></div>
-            </div>
-          `;
-          row.appendChild(detailsCell);
 
           // Audit Verdict Flags Column
           const flagsCell = document.createElement("td");
