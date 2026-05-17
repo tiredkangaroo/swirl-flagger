@@ -425,11 +425,11 @@
       async function processAndRender(records) {
         globalAllRecords = records;
         globalPendingRecords = records.filter((record) => record.fields["Review Status"] === "Pending");
-        const approvedRecords = records.filter((record) => record.fields["Review Status"] === "Approved");
+        globalApprovedRecords = records.filter((record) => record.fields["Review Status"] === "Approved");
 
-        globalFlaggedMap = await flagRecords(approvedRecords);
+        globalFlaggedMap = await flagRecords(globalAllRecords, globalApprovedRecords);
 
-        populateEventCodeDropdown(globalPendingRecords);
+        populateEventCodeDropdown(globalAllRecords);
         renderTable();
       }
 
@@ -438,9 +438,9 @@
         if (!email) {
           return Promise.reject(new Error("missing email for identity check"));
         }
-        if (idvCache[email]) {
+        if (idvCache[email] && idvCache[email].expires > new Date().getTime()) {
           console.log("idv cache hit", email, idvCache[email]);
-          return Promise.resolve(idvCache[email]);
+          return Promise.resolve(idvCache[email].value);
         }
         console.log("idv cache miss", email);
         try {
@@ -448,7 +448,7 @@
             `https://identity.hackclub.com/api/external/check?email=${encodeURIComponent(email)}`,
           );
           const idData = await idResp.json();
-          idvCache[email] = idData.result;
+          idvCache[email] = { value: idData.result, expires: new Date().getTime() + 24 * 60 * 60 * 1000 };
           localStorage.setItem("idvCache", JSON.stringify(idvCache));
           return Promise.resolve(idData.result);
         } catch (err) {
@@ -457,13 +457,13 @@
         return Promise.resolve("");
       }
 
-      function populateEventCodeDropdown(pendingRecords) {
+      function populateEventCodeDropdown(allRecords) {
         const select = document.getElementById("eventCodeFilter");
         // Reset options keeping only the first fallback item
         select.innerHTML = '<option value="">-- select code (shows all) --</option>';
 
         const codes = new Set();
-        globalAllRecords.forEach((r) => {
+        allRecords.forEach((r) => {
           if (r.fields["Event Code (from Event Code)"]) {
             codes.add(r.fields["Event Code (from Event Code)"][0]);
           }
@@ -482,14 +482,14 @@
           });
       }
 
-      async function flagRecords(approvedRecords) {
+      async function flagRecords(allRecords, approvedRecords) {
         const flaggedRecords = {};
 
-        if (approvedRecords.length === 0) {
+        if (allRecords.length === 0 || approvedRecords.length === 0) {
           return [];
         }
 
-        for (const record of approvedRecords) {
+        for (const record of allRecords) {
           // Check age at time of submission
           const age = new Date(record.createdTime) - new Date(record.fields["Birthday"]);
           if (age < thirteenYearsInMs || age >= nineteenYearsInMs) {
