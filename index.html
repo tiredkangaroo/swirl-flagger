@@ -427,10 +427,34 @@
         globalPendingRecords = records.filter((record) => record.fields["Review Status"] === "Pending");
         const approvedRecords = records.filter((record) => record.fields["Review Status"] === "Approved");
 
-        globalFlaggedMap = await flagRecords(globalPendingRecords, approvedRecords);
+        globalFlaggedMap = await flagRecords(approvedRecords);
 
         populateEventCodeDropdown(globalPendingRecords);
         renderTable();
+      }
+
+      var idvCache = JSON.parse(localStorage.getItem("idvCache") || "{}");
+      async function checkIDV(email) {
+        if (!email) {
+          return Promise.reject(new Error("missing email for identity check"));
+        }
+        if (idvCache[email]) {
+          console.log("idv cache hit", email, idvCache[email]);
+          return Promise.resolve(idvCache[email]);
+        }
+        console.log("idv cache miss", email);
+        try {
+          const idResp = await fetch(
+            `https://identity.hackclub.com/api/external/check?email=${encodeURIComponent(email)}`,
+          );
+          const idData = await idResp.json();
+          idvCache[email] = idData.result;
+          localStorage.setItem("idvCache", JSON.stringify(idvCache));
+          return Promise.resolve(idData.result);
+        } catch (err) {
+          return Promise.reject(err.message || "identity check failed");
+        }
+        return Promise.resolve("");
       }
 
       function populateEventCodeDropdown(pendingRecords) {
@@ -458,14 +482,14 @@
           });
       }
 
-      async function flagRecords(pendingRecords, approvedRecords) {
+      async function flagRecords(approvedRecords) {
         const flaggedRecords = {};
 
-        if (pendingRecords.length === 0) {
-          return flaggedRecords;
+        if (approvedRecords.length === 0) {
+          return [];
         }
 
-        for (const record of pendingRecords) {
+        for (const record of approvedRecords) {
           // Check age at time of submission
           const age = new Date(record.createdTime) - new Date(record.fields["Birthday"]);
           if (age < thirteenYearsInMs || age >= nineteenYearsInMs) {
@@ -480,20 +504,15 @@
               addFlagReason(flaggedRecords, record.id, { text: "missing slack id" });
             }
             try {
-              const idResp = await fetch(
-                `https://identity.hackclub.com/api/external/check?email=${encodeURIComponent(record.fields["Email"] || "")}`,
-              );
-              const idData = await idResp.json();
-              if (idData.result !== "verified_eligible") {
-                addFlagReason(flaggedRecords, record.id, { text: "idv: " + idData.result });
-              }
-            } catch {
-              addFlagReason(flaggedRecords, record.id, { text: "error checking identity database" });
+              await checkIDV(record.fields["Email"]);
+            } catch (err) {
+              addFlagReason(flaggedRecords, record.id, { text: `idv: ${err}` });
             }
           }
 
           // Duplicate checking routines against approved database
           for (const approvedRecord of approvedRecords) {
+            if (approvedRecord.id === record.id) continue; // skip self-comparison
             if (record.fields["Email"] && record.fields["Email"] === approvedRecord.fields["Email"]) {
               addFlagReason(flaggedRecords, record.id, {
                 text: "duplicate email of an approved submission",
