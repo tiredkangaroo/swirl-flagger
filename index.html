@@ -39,12 +39,6 @@
         font-weight: 700;
       }
 
-      .subtitle {
-        color: #7c6e6d;
-        margin-top: 0;
-        margin-bottom: 32px;
-      }
-
       #var-container {
         background: var(--card-bg);
         border: 1px solid var(--border-color);
@@ -128,30 +122,43 @@
         flex-wrap: wrap;
         gap: 16px;
         margin-bottom: 20px;
+        background: var(--card-bg);
+        padding: 16px;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
       }
 
-      .filters {
+      .filters-grid {
         display: flex;
-        gap: 8px;
+        gap: 20px;
         flex-wrap: wrap;
         align-items: center;
       }
 
-      .filter-btn {
-        padding: 8px 16px;
-        background: #f3ece0;
-        border: 1px solid var(--border-color);
-        color: var(--text-color);
+      .filter-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
 
-      .filter-btn:hover {
-        background: #ebdcc5;
+      .filter-control label {
+        font-size: 0.875rem;
+        font-weight: 600;
       }
 
-      .filter-btn.active {
-        background: var(--text-color);
-        color: #ffffff;
-        border-color: var(--text-color);
+      .checkbox-control {
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .checkbox-control input {
+        cursor: pointer;
+        width: 16px;
+        height: 16px;
       }
 
       .review-status-pending {
@@ -172,20 +179,6 @@
       .review-status-changes-requested {
         color: #1709b4;
         font-size: 0.85rem;
-        font-weight: 600;
-      }
-
-      .event-select-wrapper {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-left: 8px;
-        border-left: 2px solid var(--border-color);
-        padding-left: 16px;
-      }
-
-      .event-select-wrapper label {
-        font-size: 0.875rem;
         font-weight: 600;
       }
 
@@ -227,7 +220,6 @@
       tr:last-child td {
         border-bottom: none;
       }
-
       tr:hover td {
         background-color: #fdfbfa;
       }
@@ -245,7 +237,6 @@
         background-color: #e0f2fe;
         color: #0369a1;
       }
-
       .badge-individual {
         background-color: #f3e8ff;
         color: #6b21a8;
@@ -267,7 +258,6 @@
         font-weight: 600;
         text-decoration: underline;
       }
-
       .reason-tag:last-child {
         margin-bottom: 0;
       }
@@ -315,15 +305,35 @@
 
       <div id="results-section" style="display: none">
         <div class="controls-bar">
-          <div class="filters">
-            <button class="filter-btn active" onclick="setFilter('flagged', this)">all flagged pending</button>
-            <button class="filter-btn" onclick="setFilter('workshop', this)">workshop flagged pending</button>
-            <button class="filter-btn" onclick="setFilter('individual', this)">individual flagged pending</button>
+          <div class="filters-grid">
+            <!-- Filter 1: Review Status -->
+            <div class="filter-control">
+              <label for="statusFilter">Status:</label>
+              <select id="statusFilter" onchange="renderTable()">
+                <option value="All">-- All Statuses --</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Changes Requested">Changes Requested</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
 
-            <div class="event-select-wrapper" style="display: flex">
-              <label for="eventCodeFilter">Or Specific Event:</label>
-              <select id="eventCodeFilter" onchange="setEventFilter(this.value)" style="max-width: 300px">
-                <option value="">-- select code (shows all) --</option>
+            <!-- Filter 2: Flagged Status Checklist -->
+            <label class="checkbox-control">
+              <input type="checkbox" id="flaggedFilter" onchange="renderTable()" />
+              Show Flagged Only
+            </label>
+
+            <!-- Filter 3: Submission Types & Event Codes -->
+            <div class="filter-control">
+              <label for="typeFilter">Type / Event:</label>
+              <select id="typeFilter" onchange="renderTable()">
+                <option value="All">-- All Submissions --</option>
+                <option value="Individual">Individual</option>
+                <option value="Workshops">All Workshops</option>
+                <optgroup label="Specific Event Codes" id="eventCodesOptGroup">
+                  <!-- Dynamically populated codes -->
+                </optgroup>
               </select>
             </div>
           </div>
@@ -351,10 +361,7 @@
       const nineteenYearsInMs = 19 * 365 * 24 * 60 * 60 * 1000;
 
       let globalAllRecords = [];
-      let globalPendingRecords = [];
       let globalFlaggedMap = {};
-      let currentFilter = "flagged";
-      let selectedEventCode = "";
 
       async function fetchRecords() {
         var records = [];
@@ -393,7 +400,6 @@
           }
 
           document.getElementById("status-display").textContent = "running sanity checker";
-          console.log("fetched records:", records);
           await processAndRender(records);
         } catch (err) {
           document.getElementById("status-display").textContent = "error: " + err.message;
@@ -424,12 +430,12 @@
 
       async function processAndRender(records) {
         globalAllRecords = records;
-        globalPendingRecords = records.filter((record) => record.fields["Review Status"] === "Pending");
-        globalApprovedRecords = records.filter((record) => record.fields["Review Status"] === "Approved");
+        const approvedRecords = records.filter((record) => record.fields["Review Status"] === "Approved");
 
-        globalFlaggedMap = await flagRecords(globalAllRecords, globalApprovedRecords);
+        globalFlaggedMap = await flagRecords(globalAllRecords, approvedRecords);
 
         populateEventCodeDropdown(globalAllRecords);
+        document.getElementById("status-display").textContent = `Loaded ${records.length} records.`;
         renderTable();
       }
 
@@ -439,10 +445,8 @@
           return Promise.reject(new Error("missing email for identity check"));
         }
         if (idvCache[email] && idvCache[email].expires > new Date().getTime()) {
-          console.log("idv cache hit", email, idvCache[email]);
           return Promise.resolve(idvCache[email].value);
         }
-        console.log("idv cache miss", email);
         try {
           const idResp = await fetch(
             `https://identity.hackclub.com/api/external/check?email=${encodeURIComponent(email)}`,
@@ -454,13 +458,11 @@
         } catch (err) {
           return Promise.reject(err.message || "identity check failed");
         }
-        return Promise.resolve("");
       }
 
       function populateEventCodeDropdown(allRecords) {
-        const select = document.getElementById("eventCodeFilter");
-        // Reset options keeping only the first fallback item
-        select.innerHTML = '<option value="">-- select code (shows all) --</option>';
+        const optGroup = document.getElementById("eventCodesOptGroup");
+        optGroup.innerHTML = "";
 
         const codes = new Set();
         allRecords.forEach((r) => {
@@ -476,29 +478,28 @@
           .sort()
           .forEach((code) => {
             const opt = document.createElement("option");
-            opt.value = code;
+            opt.value = `code:${code}`;
             opt.textContent = code;
-            select.appendChild(opt);
+            optGroup.appendChild(opt);
           });
+      }
+
+      function roundNearestTenth(num) {
+        return Math.round(num * 10) / 10;
       }
 
       async function flagRecords(allRecords, approvedRecords) {
         const flaggedRecords = {};
-
-        if (allRecords.length === 0 || approvedRecords.length === 0) {
-          return [];
-        }
+        if (allRecords.length === 0) return {};
 
         for (const record of allRecords) {
-          // Check age at time of submission
           const age = new Date(record.createdTime) - new Date(record.fields["Birthday"]);
           if (age < thirteenYearsInMs || age >= nineteenYearsInMs) {
             addFlagReason(flaggedRecords, record.id, {
-              text: `age of ${Math.round(age / (1000 * 60 * 60 * 24 * 365))} years`,
+              text: `age of ${roundNearestTenth(age / (1000 * 60 * 60 * 24 * 365))} years`,
             });
           }
 
-          // Individual submission checks
           if (!record.fields["Event Code (from Event Code)"]) {
             if (!record.fields["Slack ID"]) {
               addFlagReason(flaggedRecords, record.id, { text: "missing slack id" });
@@ -510,9 +511,8 @@
             }
           }
 
-          // Duplicate checking routines against approved database
           for (const approvedRecord of approvedRecords) {
-            if (approvedRecord.id === record.id) continue; // skip self-comparison
+            if (approvedRecord.id === record.id) continue;
             if (record.fields["Email"] && record.fields["Email"] === approvedRecord.fields["Email"]) {
               addFlagReason(flaggedRecords, record.id, {
                 text: "duplicate email of an approved submission",
@@ -566,36 +566,10 @@
         if (!flaggedRecords[recordID]) {
           flaggedRecords[recordID] = [];
         }
-        // Deduplicate standard identical string logs
         const exists = flaggedRecords[recordID].some((r) => r.text === reasonObj.text && r.dupId === reasonObj.dupId);
         if (!exists) {
           flaggedRecords[recordID].push(reasonObj);
         }
-      }
-
-      function setFilter(filterType, element) {
-        currentFilter = filterType;
-        selectedEventCode = ""; // Reset the exclusive code select element
-        document.getElementById("eventCodeFilter").value = "";
-
-        document.querySelectorAll(".filter-btn").forEach((btn) => btn.classList.remove("active"));
-        if (element) element.classList.add("active");
-        renderTable();
-      }
-
-      function setEventFilter(eventCode) {
-        selectedEventCode = eventCode;
-        if (eventCode !== "") {
-          // Deactivate the system filter buttons visually since we're viewing code scope
-          document.querySelectorAll(".filter-btn").forEach((btn) => btn.classList.remove("active"));
-          currentFilter = "event_code_scope";
-        } else {
-          // Fallback context if they re-select default option
-          const targetBtn = document.querySelector(".filter-btn") || {};
-          setFilter("flagged", targetBtn);
-          return;
-        }
-        renderTable();
       }
 
       function renderTable() {
@@ -606,43 +580,57 @@
         const tableID = localStorage.getItem("tableID");
         const viewID = localStorage.getItem("viewID");
 
-        var mainlist = [];
-        if (currentFilter === "event_code_scope") {
-          mainlist = globalAllRecords;
-        } else {
-          mainlist = globalPendingRecords;
-        }
-        const filtered = mainlist.filter((record) => {
+        // Gather current filter values
+        const statusFilter = document.getElementById("statusFilter").value;
+        const showFlaggedOnly = document.getElementById("flaggedFilter").checked;
+        const typeFilter = document.getElementById("typeFilter").value;
+
+        const filtered = globalAllRecords.filter((record) => {
+          const fields = record.fields;
           const flags = globalFlaggedMap[record.id] || [];
           const isFlagged = flags.length > 0;
-          const isWorkshop = !!record.fields["Event Code (from Event Code)"];
+          const isWorkshop = !!fields["Event Code (from Event Code)"];
+          const recordStatus = fields["Review Status"] || "Pending";
 
-          // If looking for a specific event code match (show all flagged and clean matching it)
-          if (currentFilter === "event_code_scope") {
-            console.log(
-              "checking record for event code match:",
-              selectedEventCode,
-              record.fields["Event Code (from Event Code)"],
-              record.fields["club_name (from club) (from Event Code)"],
-            );
-            if (record.fields["Event Code (from Event Code)"]) {
-              return record.fields["Event Code (from Event Code)"][0].toLowerCase() === selectedEventCode.toLowerCase();
-            } else if (record.fields["club_name (from club) (from Event Code)"]) {
-              return (
-                record.fields["club_name (from club) (from Event Code)"][0].toLowerCase() ===
-                selectedEventCode.toLowerCase()
-              );
-            } else {
-              return false; // if the record doesn't have an event code, it can't match the filter
-            }
+          // 1. Status Filter Check
+          if (statusFilter !== "All" && recordStatus !== statusFilter) {
+            return false;
           }
 
-          if (currentFilter === "all") return true;
-          if (currentFilter === "flagged") return isFlagged;
-          if (currentFilter === "workshop") return isFlagged && isWorkshop;
-          if (currentFilter === "individual") return isFlagged && !isWorkshop;
+          // 2. Flagged Checkbox Check
+          if (showFlaggedOnly && !isFlagged) {
+            return false;
+          }
+
+          // 3. Type / Event Code Filter Check
+          if (typeFilter === "Individual" && isWorkshop) {
+            return false;
+          }
+          if (typeFilter === "Workshops" && !isWorkshop) {
+            return false;
+          }
+          if (typeFilter.startsWith("code:")) {
+            const targetCode = typeFilter.replace("code:", "").toLowerCase();
+            let matchesCode = false;
+
+            if (
+              fields["Event Code (from Event Code)"] &&
+              fields["Event Code (from Event Code)"][0].toLowerCase() === targetCode
+            ) {
+              matchesCode = true;
+            } else if (
+              fields["club_name (from club) (from Event Code)"] &&
+              fields["club_name (from club) (from Event Code)"][0].toLowerCase() === targetCode
+            ) {
+              matchesCode = true;
+            }
+
+            if (!matchesCode) return false;
+          }
+
           return true;
         });
+
         if (filtered.length === 0) {
           tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 40px; color: #7c6e6d;">No records match the current view filter.</td></tr>`;
           return;
@@ -657,8 +645,10 @@
 
           // Name & Base Account Column
           const nameCell = document.createElement("td");
+          const statusClass = `review-status-${(fields["Review Status"] || "Pending").toLowerCase().replace(/ /g, "-")}`;
+
           nameCell.innerHTML = `
-            <strong>${fields["First Name"] || ""} ${fields["Last Name"] || "Unnamed"} <span title="${"decision reason: " + (fields["Decision Reason"] || "n/a")}\nnotes for the team: ${fields["Notes (for the team)"] || "n/a"}" class="review-status-${fields["Review Status"].toLowerCase().replace(" ", "-")}">(${fields["Review Status"]})</span></strong>
+            <strong>${fields["First Name"] || ""} ${fields["Last Name"] || "Unnamed"} <span title="decision reason: ${fields["Decision Reason"] || "n/a"}\nnotes for the team: ${fields["Notes (for the team)"] || "n/a"}" class="${statusClass}">(${fields["Review Status"] || "Pending"})</span></strong>
             <div>${
               isWorkshop
                 ? `<span class="badge badge-workshop" title="${fields["Event Code (from Event Code)"]}">Workshop</span>`
@@ -686,7 +676,6 @@
               tag.className = "reason-tag";
 
               if (reason.dupId) {
-                // Generate absolute dynamic Airtable record link
                 const airtableLink = `https://airtable.com/${baseID}/${tableID}/${viewID}/${reason.dupId}?copyLinkToCellOrRecordOrigin=gridView`;
                 tag.innerHTML = `${reason.text} (<a href="${airtableLink}" target="_blank">view original</a>)`;
               } else {
