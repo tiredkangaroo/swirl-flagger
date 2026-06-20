@@ -827,9 +827,10 @@
                     : ""
                 }
             </div>
-            <div class="text-muted" style="margin-top: 8px; display: flex; justify-content: space-between; width: 100px;">
+            <div class="text-muted" style="margin-top: 8px; display: flex; justify-content: space-between; width: 200px;">
               <a href="mailto:${fields["Email"]}" class="text-muted">Email</a>
               ${fields["Slack ID"] ? `<a href="https://hackclub.slack.com/team/${fields["Slack ID"]}" target="_blank" class="text-muted"> Slack </a>` : ""}
+              <a href="https://introspect.sahil.ink/?repo_url=${encodeURI(fields["Code URL"])}&demo_url=${encodeURI(fields["Playable URL"])}&slack_id=${encodeURI(fields["Slack ID"])}" target="_blank" class="text-muted">Introspect</a>
             </div>
           `;
           row.appendChild(nameCell);
