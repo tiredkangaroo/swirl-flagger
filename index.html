@@ -456,19 +456,17 @@
       }
 
       var idvCache = JSON.parse(localStorage.getItem("idvCache") || "{}");
-      async function checkIDV(email) {
-        if (!email) {
-          return Promise.reject(new Error("missing email for identity check"));
+      async function checkIDV(slackID) {
+        if (!slackID) {
+          return Promise.reject(new Error("missing slack ID for identity check"));
         }
-        if (idvCache[email] && idvCache[email].expires > new Date().getTime()) {
-          return Promise.resolve(idvCache[email].value);
+        if (idvCache[slackID] && idvCache[slackID].expires > new Date().getTime()) {
+          return Promise.resolve(idvCache[slackID].value);
         }
         try {
-          const idResp = await fetch(
-            `https://identity.hackclub.com/api/external/check?email=${encodeURIComponent(email)}`,
-          );
+          const idResp = await fetch(`https://identity.hackclub.com/api/external/check?slack_id=${slackID}`);
           const idData = await idResp.json();
-          idvCache[email] = { value: idData.result, expires: new Date().getTime() + 24 * 60 * 60 * 1000 };
+          idvCache[slackID] = { value: idData.result, expires: new Date().getTime() + 24 * 60 * 60 * 1000 };
           localStorage.setItem("idvCache", JSON.stringify(idvCache));
           return Promise.resolve(idData.result);
         } catch (err) {
@@ -651,7 +649,7 @@
               addFlagReason(flaggedRecords, record.id, { text: "hackatime trust check failed" });
             }
             try {
-              const idvResult = await checkIDV(record.fields["Email"]);
+              const idvResult = await checkIDV(record.fields["Slack ID"]);
               globalIdvMap[record.id] = idvResult;
               if (idvResult !== "verified_eligible") {
                 addFlagReason(flaggedRecords, record.id, { text: `idv: ${idvStatus(idvResult)}` });
